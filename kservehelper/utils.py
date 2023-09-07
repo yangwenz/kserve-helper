@@ -8,8 +8,10 @@ from kservehelper.types import Path
 
 
 def upload_files(webhook_url: str, paths: List[Path], timeout=60):
-    outputs = asyncio.run(_upload_v2(webhook_url, paths, timeout))
-    return outputs
+    # outputs = asyncio.run(_upload_v2(webhook_url, paths, timeout))
+    # return outputs
+    outputs = _upload_v0(webhook_url, paths, timeout)
+    return {"urls": outputs}
 
 
 def _upload_v0(webhook_url: str, paths: List[Path], timeout):
