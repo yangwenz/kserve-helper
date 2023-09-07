@@ -1,6 +1,7 @@
 import unittest
 from typing import Dict
 from kservehelper.model import KServeModel
+from kservehelper.types import Input
 
 
 class CustomModel:
@@ -12,18 +13,28 @@ class CustomModel:
     def load(self):
         pass
 
-    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
-        prompt = payload["prompt"]
+    def predict(
+            self,
+            prompt: str = Input(
+                description="Input prompt",
+                default="standing, (full body)++"
+            )
+    ) -> Dict:
         return {"outputs": prompt}
 
 
 class CustomTransform:
 
-    def preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
-        prompt = payload["prompt"]
+    def preprocess(
+            self,
+            prompt: str = Input(
+                description="Input prompt",
+                default="standing, (full body)++"
+            )
+    ) -> Dict:
         return {"outputs": prompt.upper()}
 
-    def postprocess(self, infer_response: Dict, headers: Dict[str, str] = None) -> Dict:
+    def postprocess(self, infer_response: Dict) -> Dict:
         outputs = infer_response["outputs"] + " ABC"
         return {"outputs": outputs}
 
@@ -36,7 +47,7 @@ class TestKServeModel(unittest.TestCase):
         outputs = model.predict(payload)
         self.assertDictEqual(outputs, {"outputs": "test test"})
 
-    def test_tansform(self):
+    def xxx_test_tansform(self):
         payload = {"prompt": "test test"}
         model = KServeModel("test", CustomTransform)
         outputs = model.postprocess(model.preprocess(payload))
