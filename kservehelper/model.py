@@ -6,7 +6,7 @@ from typing import Any, Dict, Callable
 from inspect import signature
 from kserve import Model, ModelServer
 from kservehelper.types import Path
-from kservehelper.utils import upload
+from kservehelper.utils import upload_files
 
 
 class ModelIOInfo:
@@ -114,16 +114,18 @@ class KServeModel(Model):
     def _upload(upload_webhook, model_outputs):
         if upload_webhook is None or KServeModel.MODEL_IO_INFO.outputs is None:
             return model_outputs
+
         if KServeModel.MODEL_IO_INFO.outputs["type"] == Path:
             assert not isinstance(model_outputs, (list, tuple)), \
                 "Model output type is `Path`, but the actual output is a List"
-            return upload(upload_webhook, [model_outputs])
+            return upload_files(upload_webhook, [model_outputs])
+
         if KServeModel.MODEL_IO_INFO.outputs["type"] == list:
             if len(KServeModel.MODEL_IO_INFO.outputs["args"]) == 1 and \
                     KServeModel.MODEL_IO_INFO.outputs["args"][0] == Path:
                 assert isinstance(model_outputs, (list, tuple)), \
                     "Model output type is `List[Path]`, but the actual output is not a List"
-                return upload(upload_webhook, model_outputs)
+                return upload_files(upload_webhook, model_outputs)
         return model_outputs
 
     @staticmethod
