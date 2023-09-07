@@ -1,7 +1,7 @@
 import unittest
-from typing import Dict
+from typing import Dict, List
 from kservehelper.model import KServeModel
-from kservehelper.types import Input
+from kservehelper.types import Input, Path
 
 
 class CustomModel:
@@ -42,13 +42,13 @@ class CustomTransform:
 class TestKServeModel(unittest.TestCase):
 
     def test_model(self):
-        payload = {"prompt": "test test"}
+        payload = {"prompt": "test test", "upload_webhook": "http://localhost"}
         model = KServeModel("test", CustomModel)
         outputs = model.predict(payload)
         self.assertDictEqual(outputs, {"outputs": "test test"})
 
     def xxx_test_tansform(self):
-        payload = {"prompt": "test test"}
+        payload = {"prompt": "test test", "upload_webhook": "http://localhost"}
         model = KServeModel("test", CustomTransform)
         outputs = model.postprocess(model.preprocess(payload))
         self.assertDictEqual(outputs, {"outputs": "TEST TEST ABC"})
