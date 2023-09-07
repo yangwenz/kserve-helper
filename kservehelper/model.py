@@ -112,20 +112,27 @@ class KServeModel(Model):
 
     @staticmethod
     def _upload(upload_webhook, model_outputs):
-        if upload_webhook is None or KServeModel.MODEL_IO_INFO.outputs is None:
+        if KServeModel.MODEL_IO_INFO.outputs is None:
+            assert isinstance(model_outputs, dict), "Model output must be a dict"
             return model_outputs
 
         if KServeModel.MODEL_IO_INFO.outputs["type"] == Path:
-            assert not isinstance(model_outputs, (list, tuple)), \
-                "Model output type is `Path`, but the actual output is a List"
+            assert upload_webhook is not None, \
+                "Model output type is `Path`, but `upload_webhook` is not set"
+            assert isinstance(model_outputs, Path), \
+                "Model output type is `Path`, but the actual output is not `Path`"
             return upload_files(upload_webhook, [model_outputs])
 
         if KServeModel.MODEL_IO_INFO.outputs["type"] == list:
             if len(KServeModel.MODEL_IO_INFO.outputs["args"]) == 1 and \
                     KServeModel.MODEL_IO_INFO.outputs["args"][0] == Path:
+                assert upload_webhook is not None, \
+                    "Model output type is `Path`, but `upload_webhook` is not set"
                 assert isinstance(model_outputs, (list, tuple)), \
                     "Model output type is `List[Path]`, but the actual output is not a List"
                 return upload_files(upload_webhook, model_outputs)
+
+        assert isinstance(model_outputs, dict), "Model output must be a dict"
         return model_outputs
 
     @staticmethod
