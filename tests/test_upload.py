@@ -1,6 +1,7 @@
 import os
 import pytest
 import unittest
+from typing import List
 from kservehelper.model import KServeModel
 from kservehelper.types import Input, Path
 
@@ -16,16 +17,18 @@ class CustomModel:
                 description="Rotation angle",
                 default=90
             )
-    ) -> Path:
+    ) -> List[Path]:
         from PIL import Image
 
+        paths = []
         folder = os.path.dirname(os.path.abspath(__file__))
         input_image = Image.open(os.path.join(folder, "dog.jpg"))
-        image = input_image.rotate(angle)
-
-        output_path = "/tmp/dog.jpg"
-        image.save(output_path)
-        return Path(output_path)
+        for i in range(10):
+            image = input_image.rotate(angle + i * 10)
+            output_path = f"/tmp/dog_{i}.jpg"
+            image.save(output_path)
+            paths.append(Path(output_path))
+        return paths
 
 
 class TestKServeModel(unittest.TestCase):

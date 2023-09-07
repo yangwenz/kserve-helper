@@ -1,4 +1,6 @@
 kserve==0.10.2
 pydantic
 requests
+aiohttp
+aiofiles
 pytest
