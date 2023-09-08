@@ -1,4 +1,4 @@
 {
-  "angle": 90,
-  "upload_webhook": "http://localhost:12000/upload"
+  "angle": 45,
+  "upload_webhook": "http://model-webhook-service.default.svc.cluster.local:12000/upload"
 }
