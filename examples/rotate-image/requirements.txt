@@ -1,2 +1,2 @@
-kservehelper
+kservehelper>=1.0.1
 Pillow
