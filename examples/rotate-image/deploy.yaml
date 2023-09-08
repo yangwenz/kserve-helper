@@ -6,4 +6,4 @@ spec:
   predictor:
     containers:
       - name: kserve-container
-        image: yangwenz/test-rotate-image:v2
+        image: yangwenz/test-rotate-image:v3
