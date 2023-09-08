@@ -25,7 +25,7 @@ class TestKServeModel(unittest.TestCase):
         payload = {"prompt": "test test", "upload_webhook": "http://localhost"}
         model = KServeModel("test", CustomModel)
         outputs = model.predict(payload)
-        self.assertDictEqual(outputs, {"outputs": "test test"})
+        self.assertEqual(outputs["outputs"], "test test")
 
 
 if __name__ == "__main__":

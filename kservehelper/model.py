@@ -1,3 +1,4 @@
+import time
 import typing
 import pydantic
 import inspect
@@ -59,12 +60,19 @@ class ModelIOInfo:
 
 class KServeModel(Model):
     MODEL_IO_INFO = ModelIOInfo()
+    HAS_PREPROCESS = False
+    HAS_PREDICT = False
+    HAS_POSTPROCESS = False
 
     def __init__(self, name: str, model_class: Any):
         super().__init__(name)
+        KServeModel._reset()
         KServeModel._build_functions(model_class)
         self.model = model_class()
+
+        # Only used for transforms
         self.upload_webhook = None
+        self.predict_start_time = -1
 
     def load(self) -> bool:
         method = getattr(self.model, "load", None)
@@ -81,34 +89,52 @@ class KServeModel(Model):
             KServeModel.MODEL_IO_INFO.set_input_signatures(method)
             KServeModel.MODEL_IO_INFO.set_output_signatures(method)
             setattr(KServeModel, "predict", KServeModel._predict)
+            KServeModel.HAS_PREDICT = True
 
         # Preprocess function
         method = getattr(model_class, "preprocess", None)
         if callable(method):
+            assert not KServeModel.HAS_PREDICT, \
+                "`predict` function has been defined already, cannot define `preprocess` separately"
             KServeModel.MODEL_IO_INFO.set_input_signatures(method)
             setattr(KServeModel, "preprocess", KServeModel._preprocess)
+            KServeModel.HAS_PREPROCESS = True
 
         # Postprocess function
         method = getattr(model_class, "postprocess", None)
         if callable(method):
+            assert not KServeModel.HAS_PREDICT, \
+                "`predict` function has been defined already, cannot define `postprocess` separately"
             KServeModel.MODEL_IO_INFO.set_output_signatures(method)
             setattr(KServeModel, "postprocess", KServeModel._postprocess)
+            KServeModel.HAS_POSTPROCESS = True
+
+        if KServeModel.HAS_PREPROCESS or KServeModel.HAS_POSTPROCESS:
+            assert KServeModel.HAS_PREPROCESS and KServeModel.HAS_POSTPROCESS, \
+                "`preprocess` and `postprocess` must be both defined"
 
     @staticmethod
-    def _predict(self, payload: Dict, headers: Dict[str, str] = None):
-        self.upload_webhook = payload.pop("upload_webhook", None)
+    def _predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+        start_time = time.time()
+        upload_webhook = payload.pop("upload_webhook", None)
         outputs = self.model.predict(**payload)
-        return KServeModel._upload(self.upload_webhook, outputs)
+        results = KServeModel._upload(upload_webhook, outputs)
+        results["running_time"] = f"{time.time() - start_time}s"
+        return results
 
     @staticmethod
-    def _preprocess(self, payload: Dict, headers: Dict[str, str] = None):
+    def _preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+        self.predict_start_time = time.time()
         self.upload_webhook = payload.pop("upload_webhook", None)
         return self.model.preprocess(**payload)
 
     @staticmethod
-    def _postprocess(self, infer_response: Dict, headers: Dict[str, str] = None):
+    def _postprocess(self, infer_response: Dict, headers: Dict[str, str] = None) -> Dict:
         outputs = self.model.postprocess(infer_response)
-        return KServeModel._upload(self.upload_webhook, outputs)
+        results = KServeModel._upload(self.upload_webhook, outputs)
+        results["running_time"] = f"{time.time() - self.predict_start_time}s"
+        self.upload_webhook = None
+        return results
 
     @staticmethod
     def _upload(upload_webhook, model_outputs):
@@ -134,6 +160,25 @@ class KServeModel(Model):
 
         assert isinstance(model_outputs, dict), "Model output must be a dict"
         return model_outputs
+
+    @staticmethod
+    def _reset():
+        KServeModel.MODEL_IO_INFO = ModelIOInfo()
+        if KServeModel.HAS_PREPROCESS:
+            KServeModel.HAS_PREPROCESS = False
+            method = getattr(KServeModel, "preprocess", None)
+            if callable(method):
+                delattr(KServeModel, "preprocess")
+        if KServeModel.HAS_PREDICT:
+            KServeModel.HAS_PREDICT = False
+            method = getattr(KServeModel, "predict", None)
+            if callable(method):
+                delattr(KServeModel, "predict")
+        if KServeModel.HAS_POSTPROCESS:
+            KServeModel.HAS_POSTPROCESS = False
+            method = getattr(KServeModel, "postprocess", None)
+            if callable(method):
+                delattr(KServeModel, "postprocess")
 
     @staticmethod
     def serve(name: str, model_class: Any):
