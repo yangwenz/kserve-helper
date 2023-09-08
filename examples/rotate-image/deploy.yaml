@@ -1,0 +1,9 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: test-rotate-image
+spec:
+  predictor:
+    containers:
+      - name: kserve-container
+        image: yangwenz/test-rotate-image:v1
