@@ -33,7 +33,11 @@ def _upload_multithread(webhook_url: str, paths: List[Path], timeout):
     def _make_request(filepath):
         with open(filepath, "rb") as f:
             files = {"file": (filepath, f)}
-            response = requests.post(webhook_url, files=files, timeout=timeout)
+            try:
+                response = requests.post(webhook_url, files=files, timeout=timeout)
+            except Exception as e:
+                print(f"ERROR: {e}")
+                return None
         if response.status_code != 200:
             return None
         r = json.loads(response.text)
