@@ -23,7 +23,7 @@ class CustomModel:
         paths = []
         folder = os.path.dirname(os.path.abspath(__file__))
         input_image = Image.open(os.path.join(folder, "dog.jpg"))
-        for i in range(10):
+        for i in range(4):
             image = input_image.rotate(angle + i * 10)
             output_path = f"/tmp/dog_{i}.jpg"
             image.save(output_path)
