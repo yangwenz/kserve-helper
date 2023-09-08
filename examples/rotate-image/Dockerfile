@@ -1,4 +1,4 @@
-FROM python:3.9-alpine
+FROM python:3.9.18-bullseye
 ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
