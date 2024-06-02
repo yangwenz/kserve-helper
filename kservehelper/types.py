@@ -10,6 +10,7 @@ import urllib
 from typing import Any, Dict, Iterator, List, Optional, TypeVar, Union
 
 import requests
+import pydantic
 from pydantic import Field
 
 FILENAME_ILLEGAL_CHARS = set("\u0000/")
@@ -27,6 +28,8 @@ def Input(
         le: float = None,
         min_length: int = None,
         max_length: int = None,
+        min_items: int = None,
+        max_items: int = None,
         regex: str = None,
         choices: List[Union[str, int]] = None,
 ) -> Any:
@@ -38,9 +41,37 @@ def Input(
         le=le,
         min_length=min_length,
         max_length=max_length,
+        min_items=min_items,
+        max_items=max_items,
         regex=regex,
         choices=choices,
     )
+
+
+def validate(value, name: str, field: pydantic.fields.FieldInfo):
+    if isinstance(value, str):
+        if field.min_length:
+            assert len(value) >= field.min_length, \
+                f"the length of {name} should be >= {field.min_length}"
+        if field.max_length:
+            assert len(value) <= field.max_length, \
+                f"the length of {name} should be <= {field.max_length}"
+
+    elif isinstance(value, (list, tuple)):
+        if field.min_items:
+            assert len(value) >= field.min_items, \
+                f"the number of items in {name} should be >= {field.min_items}"
+        if field.max_items:
+            assert len(value) <= field.max_items, \
+                f"the number of items in {name} should be <= {field.max_items}"
+
+    elif isinstance(value, (int, float)):
+        if field.ge:
+            assert value >= field.ge, \
+                f"the value of {name} should be >= {field.ge}"
+        if field.le:
+            assert value <= field.le, \
+                f"the value of {name} should be <= {field.le}"
 
 
 class File(io.IOBase):

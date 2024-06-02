@@ -1,0 +1,18 @@
+build:
+  python_version: "3.9"
+
+  # a list of ubuntu apt packages to install
+  system_packages:
+    - "wget"
+    - "git"
+
+  # a list of packages in the format <package-name>==<version>
+  python_packages:
+    - "kservehelper>=1.0.5"
+    - "Pillow"
+
+# The name given to built Docker images
+image: "yangwenz/test-rotate-image:v4"
+
+# model.py defines the entrypoint
+entrypoint: "model.py"

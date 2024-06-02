@@ -1,12 +1,22 @@
+# Parallel inference:
+# https://kserve.github.io/website/0.10/modelserving/v1beta1/custom/custom_model/#parallel-model-inference
+
+import os
 import time
+import json
+import uuid
 import typing
 import pydantic
 import inspect
+
 from collections import OrderedDict
 from typing import Any, Dict, Callable
 from inspect import signature
-from kserve import Model, ModelServer
-from kservehelper.types import Path
+from datetime import datetime
+
+from kserve import Model
+from kservehelper.kserve import ModelServer
+from kservehelper.types import Path, validate
 from kservehelper.utils import upload_files
 
 
@@ -14,6 +24,8 @@ class ModelIOInfo:
 
     def __init__(self):
         self._input_info = None
+        self._input_defaults = None
+        self._is_batch_inputs = None
         self._output_info = None
 
     @staticmethod
@@ -29,12 +41,34 @@ class ModelIOInfo:
     def set_input_signatures(self, method: Callable):
         t = signature(method)
         input_info = OrderedDict()
+        input_defaults = OrderedDict()
+        is_batch_inputs = {}
+
         for key, value in t.parameters.items():
+            # A single parameter
             if isinstance(value.default, pydantic.fields.FieldInfo):
                 d = ModelIOInfo._fieldinfo2dict(value.default)
-                d["type"] = value.annotation
+                if value.annotation != inspect._empty:
+                    d["type"] = value.annotation.__name__
                 input_info[key] = d
+                input_defaults[key] = value.default
+
+            # A list of multiple parameters
+            elif isinstance(value.default, list):
+                assert len(value.default) == 1
+                assert isinstance(value.default[0], dict)
+                input_info[key] = {}
+                input_defaults[key] = {}
+                is_batch_inputs[key] = True
+                for k, v in value.default[0].items():
+                    assert isinstance(v, pydantic.fields.FieldInfo)
+                    d = ModelIOInfo._fieldinfo2dict(v)
+                    input_info[key][k] = d
+                    input_defaults[key][k] = v
+
         self._input_info = input_info
+        self._input_defaults = input_defaults
+        self._is_batch_inputs = is_batch_inputs
 
     def set_output_signatures(self, method: Callable):
         t = signature(method)
@@ -54,8 +88,15 @@ class ModelIOInfo:
         return self._input_info
 
     @property
+    def input_defaults(self):
+        return self._input_defaults
+
+    @property
     def outputs(self):
         return self._output_info
+
+    def is_batch_input(self, key: str):
+        return self._is_batch_inputs.get(key, False)
 
 
 class KServeModel(Model):
@@ -64,22 +105,40 @@ class KServeModel(Model):
     HAS_PREDICT = False
     HAS_POSTPROCESS = False
 
-    def __init__(self, name: str, model_class: Any):
+    def __init__(self, name: str, model_class: Any, **kwargs):
         super().__init__(name)
         KServeModel._reset()
         KServeModel._build_functions(model_class)
-        self.model = model_class()
+        self.model = model_class(**kwargs)
 
         # Only used for transforms
         self.upload_webhook = None
         self.predict_start_time = -1
+        self.load()
 
     def load(self) -> bool:
         method = getattr(self.model, "load", None)
         if callable(method):
             self.model.load()
         self.ready = True
+        # Add a file flag for readiness
+        # Run `test -s /var/run/model_ready` to check readiness, e.g.,
+        # readinessProbe:
+        #   exec:
+        #     command:
+        #     - sh
+        #     - -c
+        #     - test -s /var/run/model_ready
+        try:
+            os.makedirs("/var/run", exist_ok=True)
+            with open("/var/run/model_ready", "w") as f:
+                f.write(f"model loaded at: {datetime.now()}")
+        except Exception as e:
+            print(e)
         return self.ready
+
+    def docs(self):
+        return json.loads(json.dumps(KServeModel.MODEL_IO_INFO.inputs))
 
     @staticmethod
     def _build_functions(model_class):
@@ -114,11 +173,41 @@ class KServeModel(Model):
                 "`preprocess` and `postprocess` must be both defined"
 
     @staticmethod
+    def _process_payload(payload: Dict):
+        # Check if the parameter names in payload are correct
+        for key, value in payload.items():
+            if key not in KServeModel.MODEL_IO_INFO.inputs:
+                raise ValueError(f"model has no input parameter named {key}")
+            if not isinstance(value, list):
+                validate(value, key, KServeModel.MODEL_IO_INFO.input_defaults[key])
+            else:
+                assert KServeModel.MODEL_IO_INFO.is_batch_input(key)
+                for param in value:
+                    assert isinstance(param, dict)
+                    for k, v in param.items():
+                        validate(v, k, KServeModel.MODEL_IO_INFO.input_defaults[key][k])
+        # Set default values
+        for key, values in KServeModel.MODEL_IO_INFO.inputs.items():
+            if not KServeModel.MODEL_IO_INFO.is_batch_input(key):
+                if key not in payload:
+                    payload[key] = values["default"]
+            else:
+                params = payload[key]
+                for k, v in values.items():
+                    for param in params:
+                        if k not in param:
+                            param[k] = v["default"]
+        return payload
+
+    @staticmethod
     def _predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         start_time = time.time()
         upload_webhook = payload.pop("upload_webhook", None)
+        payload = KServeModel._process_payload(payload)
         outputs = self.model.predict(**payload)
         results = KServeModel._upload(upload_webhook, outputs)
+        if getattr(self.model, "after_predict", None) is not None:
+            results = self.model.after_predict(results)
         results["running_time"] = f"{time.time() - start_time}s"
         return results
 
@@ -126,6 +215,7 @@ class KServeModel(Model):
     def _preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         self.predict_start_time = time.time()
         self.upload_webhook = payload.pop("upload_webhook", None)
+        payload = KServeModel._process_payload(payload)
         return self.model.preprocess(**payload)
 
     @staticmethod
@@ -181,6 +271,23 @@ class KServeModel(Model):
                 delattr(KServeModel, "postprocess")
 
     @staticmethod
-    def serve(name: str, model_class: Any):
-        model = KServeModel(name, model_class)
-        ModelServer().start([model])
+    def generate_filepath(filename: str) -> str:
+        return f"/tmp/{str(uuid.uuid4())}-{filename}"
+
+    @staticmethod
+    def serve(name: str, model_class: Any, num_replicas: int = 1, **kwargs):
+        if num_replicas <= 1:
+            model = KServeModel(name, model_class, **kwargs)
+            ModelServer().start([model])
+        else:
+            # pip install --force-reinstall gpustat
+            import ray
+            from ray import serve
+
+            @serve.deployment(name=name, num_replicas=num_replicas, ray_actor_options={"num_gpus": 1.0 / num_replicas})
+            class KServeModelRay(KServeModel):
+                def __init__(self):
+                    super().__init__(name, model_class, **kwargs)
+
+            ray.init(num_gpus=1)
+            ModelServer().start({name: KServeModelRay})

@@ -19,7 +19,7 @@ class Model:
         folder = os.path.dirname(os.path.abspath(__file__))
         input_image = Image.open(os.path.join(folder, "dog.jpg"))
         image = input_image.rotate(angle)
-        output_path = f"/tmp/dog.jpg"
+        output_path = KServeModel.generate_filepath("dog.jpg")
         image.save(output_path)
         return Path(output_path)
 

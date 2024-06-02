@@ -1,9 +1,9 @@
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: test-rotate-image
+  name: test-blur-image
 spec:
   predictor:
     containers:
       - name: kserve-container
-        image: yangwenz/test-rotate-image:v3
+        image: yangwenz/test-blur-image:v1

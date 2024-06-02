@@ -1,4 +1,4 @@
 {
-  "angle": 45,
+  "prompt": "Cute small cat sitting in a movie theater eating popcorn watching a movie",
   "upload_webhook": "http://serving-webhook-service.default.svc.cluster.local:12000/upload"
 }

@@ -1,0 +1,40 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: stable-diffusion
+spec:
+  predictor:
+    containerConcurrency: 1
+    minReplicas: 1
+    maxReplicas: 1
+    containers:
+      - name: kserve-container
+        image: yangwenz/stable-diffusion:v3
+        env:
+          # The following values are defaults which may be changed as needed
+          - name: MODEL_PATH
+            value: "/mnt/models/stable-diffusion-v1-4"
+          # KServe mounts the PVC at /mnt/models/
+          - name: STORAGE_URI
+            value: pvc://model-store-pvc
+        resources:
+          requests:
+            cpu: 4
+            memory: 16Gi
+            nvidia.com/gpu: 1
+          limits:
+            cpu: 4
+            memory: 16Gi
+            nvidia.com/gpu: 1
+        readinessProbe:
+          httpGet:
+            path: /v1/models/stable-diffusion
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /v1/models/stable-diffusion
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10

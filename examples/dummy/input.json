@@ -1,0 +1,14 @@
+{
+  "batch": [
+    {
+      "prompt": "test a",
+      "param_a": 3
+    },
+    {
+      "prompt": "test b",
+      "param_b": 2
+    }
+  ],
+  "param": "test",
+  "upload_webhook": "http://localhost"
+}
