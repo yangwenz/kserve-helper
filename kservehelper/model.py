@@ -282,6 +282,9 @@ class KServeModel(Model):
             method = getattr(KServeModel, "predict", None)
             if callable(method):
                 delattr(KServeModel, "predict")
+            method = getattr(KServeModel, "generate", None)
+            if callable(method):
+                delattr(KServeModel, "generate")
         if KServeModel.HAS_POSTPROCESS:
             KServeModel.HAS_POSTPROCESS = False
             method = getattr(KServeModel, "postprocess", None)
