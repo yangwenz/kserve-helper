@@ -88,6 +88,8 @@ class RESTServer:
                 FastAPIRoute(r"/v1/models/{model_name}", v1_endpoints.model_ready, tags=["V1"]),
                 FastAPIRoute(r"/v1/models/{model_name}:predict",
                              v1_endpoints.predict, methods=["POST"], tags=["V1"]),
+                FastAPIRoute(r"/v1/models/{model_name}:generate",
+                             v1_endpoints.generate, methods=["POST"], tags=["V1"]),
                 FastAPIRoute(r"/v1/models/{model_name}:explain",
                              v1_endpoints.explain, methods=["POST"], tags=["V1"]),
                 # Model docs

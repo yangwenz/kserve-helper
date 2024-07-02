@@ -92,7 +92,7 @@ class CustomDataPlane(DataPlane):
         body = self.decode(body, headers)
 
         model = self.get_model(model_name)
-        response = await model.generate(body, headers=headers)
+        response = model.generate(body, headers=headers)
         return response, headers
 
 

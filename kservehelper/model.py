@@ -150,6 +150,17 @@ class KServeModel(Model):
             setattr(KServeModel, "predict", KServeModel._predict)
             KServeModel.HAS_PREDICT = True
 
+        # Streaming generation
+        # Note that the streaming generation method doesn't support preprocess or postprocess function
+        method = getattr(model_class, "generate", None)
+        if callable(method):
+            if KServeModel.HAS_PREDICT:
+                raise ValueError("The model can only have one of `predict` and `generate` methods")
+            KServeModel.MODEL_IO_INFO.set_input_signatures(method)
+            KServeModel.MODEL_IO_INFO.set_output_signatures(method)
+            setattr(KServeModel, "generate", KServeModel._generate)
+            KServeModel.HAS_PREDICT = True
+
         # Preprocess function
         method = getattr(model_class, "preprocess", None)
         if callable(method):
@@ -210,6 +221,13 @@ class KServeModel(Model):
             results = self.model.after_predict(results)
         results["running_time"] = f"{time.time() - start_time}s"
         return results
+
+    @staticmethod
+    def _generate(self, payload: Dict, headers: Dict[str, str] = None):
+        payload.pop("upload_webhook", None)
+        payload = KServeModel._process_payload(payload)
+        generator = self.model.generate(**payload)
+        return generator
 
     @staticmethod
     def _preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:

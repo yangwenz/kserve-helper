@@ -14,6 +14,7 @@
 from typing import Optional, Union, Dict, List
 
 from fastapi import Request, Response
+from fastapi.responses import StreamingResponse
 
 from kserve.errors import ModelNotReady
 from kserve.protocol.dataplane import DataPlane
@@ -71,6 +72,13 @@ class V1Endpoints:
         if not isinstance(response, dict):
             return Response(content=response, headers=response_headers)
         return response
+
+    async def generate(self, model_name: str, request: Request) -> StreamingResponse:
+        body = await request.body()
+        headers = dict(request.headers.items())
+        results_generator, response_headers = \
+            await self.dataplane.generate(model_name=model_name, body=body, headers=headers)
+        return StreamingResponse(results_generator())
 
     async def explain(self, model_name: str, request: Request) -> Union[Response, Dict]:
         """Explain handler.
