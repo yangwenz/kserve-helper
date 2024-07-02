@@ -20,7 +20,7 @@ import signal
 import socket
 from distutils.util import strtobool
 from multiprocessing import Process
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Tuple, AsyncIterator, Any
 
 from ray import serve as rayserve
 from ray.serve.api import Deployment, RayServeHandle
@@ -28,7 +28,7 @@ from ray.serve.api import Deployment, RayServeHandle
 from kserve.logging import KSERVE_LOG_CONFIG, logger
 from kserve.model import Model
 from kserve.model_repository import ModelRepository
-from kserve.protocol.dataplane import DataPlane
+from kserve.protocol.dataplane import DataPlane, InferRequest
 from kserve.protocol.grpc.server import GRPCServer
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 from kservehelper.kserve.rest.server import UvicornServer
@@ -62,6 +62,38 @@ parser.add_argument("--access_log_format", default=None, type=str,
                     help="Format to set for the access log (provided by asgi-logger).")
 
 args, _ = parser.parse_known_args()
+
+
+class CustomDataPlane(DataPlane):
+
+    def __init__(self, model_registry: ModelRepository):
+        super().__init__(model_registry)
+
+    async def generate(
+            self,
+            model_name: str,
+            body: Union[Dict, InferRequest],
+            headers: Optional[Dict[str, str]] = None
+    ) -> Tuple[AsyncIterator[Any], Dict[str, str]]:
+        """Generate the text with the provided text prompt.
+
+        Args:
+            model_name (str): Model name.
+            request (bytes|GenerateRequest): Generate Request body data.
+            headers: (Optional[Dict[str, str]]): Request headers.
+
+        Returns:
+            response: The generated output or output stream.
+            response_headers: Headers to construct the HTTP response.
+
+        Raises:
+            InvalidInput: An error when the body bytes can't be decoded as JSON.
+        """
+        body = self.decode(body, headers)
+
+        model = self.get_model(model_name)
+        response = await model.generate(body, headers=headers)
+        return response, headers
 
 
 class ModelServer:
@@ -103,7 +135,7 @@ class ModelServer:
         self.enable_grpc = enable_grpc
         self.enable_docs_url = enable_docs_url
         self.enable_latency_logging = enable_latency_logging
-        self.dataplane = DataPlane(model_registry=registered_models)
+        self.dataplane = CustomDataPlane(model_registry=registered_models)
         self.model_repository_extension = ModelRepositoryExtension(
             model_registry=self.registered_models)
         self._grpc_server = None
