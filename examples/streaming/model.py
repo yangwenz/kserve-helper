@@ -28,7 +28,7 @@ class Model:
         def _generator():
             for i in range(repeat):
                 # yield "Hello World!"
-                yield json.dumps({"id": i, "message": "Hello World!"})
+                yield json.dumps({"id": i, "data": "Hello World!"})
                 time.sleep(1)
         return _generator
 
