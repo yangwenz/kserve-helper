@@ -1,5 +1,4 @@
 import time
-import json
 from kservehelper.model import KServeModel
 from kservehelper.types import Input
 
