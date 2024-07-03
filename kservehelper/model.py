@@ -155,11 +155,22 @@ class KServeModel(Model):
         method = getattr(model_class, "generate", None)
         if callable(method):
             if KServeModel.HAS_PREDICT:
-                raise ValueError("The model can only have one of `predict` and `generate` methods")
-            KServeModel.MODEL_IO_INFO.set_input_signatures(method)
-            KServeModel.MODEL_IO_INFO.set_output_signatures(method)
+                # Check if the input parameters are the same
+                input_info = ModelIOInfo()
+                input_info.set_input_signatures(method)
+                predict_inputs = KServeModel.MODEL_IO_INFO.inputs
+                generate_inputs = input_info.inputs
+                assert len(predict_inputs) == len(generate_inputs), \
+                    "The input parameters for `predict` and `generate` don't match"
+                for key in predict_inputs.keys():
+                    if key not in generate_inputs:
+                        raise ValueError(f"The input parameters for `predict` and `generate` don't match, "
+                                         f"`generate` doesn't have parameter {key}")
+            else:
+                KServeModel.MODEL_IO_INFO.set_input_signatures(method)
+                KServeModel.MODEL_IO_INFO.set_output_signatures(method)
+                KServeModel.HAS_PREDICT = True
             setattr(KServeModel, "generate", KServeModel._generate)
-            KServeModel.HAS_PREDICT = True
 
         # Preprocess function
         method = getattr(model_class, "preprocess", None)

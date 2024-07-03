@@ -2,7 +2,7 @@ from setuptools import setup, find_namespace_packages
 
 setup(
     name="kservehelper",
-    version="1.2.4",
+    version="1.2.5",
     author="Wenzhuo Yang",
     description="A KServe Model Wrapper",
     long_description=open("README.md", "r", encoding="utf-8").read(),

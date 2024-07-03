@@ -8,6 +8,15 @@ class Model:
     def load(self):
         pass
 
+    def predict(
+            self,
+            repeat: int = Input(
+                description="The number of repeats",
+                default=5
+            )
+    ):
+        return {"output": " ".join(["Hello World!"] * repeat)}
+
     def generate(
             self,
             repeat: int = Input(
