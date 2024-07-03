@@ -27,10 +27,10 @@ class Model:
     ):
         def _generator():
             for i in range(repeat):
-                # yield "Hello World!"
-                yield json.dumps({"id": i, "data": "Hello World!"})
+                yield "Hello World!"
                 time.sleep(1)
-        return _generator
+
+        return KServeModel.wrap_generator(_generator)
 
 
 if __name__ == "__main__":

@@ -307,6 +307,14 @@ class KServeModel(Model):
         return f"/tmp/{str(uuid.uuid4())}-{filename}"
 
     @staticmethod
+    def wrap_generator(g):
+        def _g():
+            for i, data in enumerate(g()):
+                yield json.dumps({"id": i, "data": data})
+
+        return _g
+
+    @staticmethod
     def serve(name: str, model_class: Any, num_replicas: int = 1, **kwargs):
         if num_replicas <= 1:
             model = KServeModel(name, model_class, **kwargs)
