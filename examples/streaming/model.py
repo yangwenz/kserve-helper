@@ -1,4 +1,5 @@
 import time
+import json
 from kservehelper.model import KServeModel
 from kservehelper.types import Input
 
@@ -25,8 +26,9 @@ class Model:
             )
     ):
         def _generator():
-            for _ in range(repeat):
-                yield "Hello World!"
+            for i in range(repeat):
+                # yield "Hello World!"
+                yield json.dumps({"id": i, "message": "Hello World!"})
                 time.sleep(1)
         return _generator
 
