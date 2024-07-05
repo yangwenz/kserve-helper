@@ -78,7 +78,7 @@ class V1Endpoints:
         headers = dict(request.headers.items())
         results_generator, response_headers = \
             await self.dataplane.generate(model_name=model_name, body=body, headers=headers)
-        return StreamingResponse(results_generator())
+        return StreamingResponse(results_generator(), media_type="application/x-ndjson")
 
     async def explain(self, model_name: str, request: Request) -> Union[Response, Dict]:
         """Explain handler.
