@@ -15,6 +15,7 @@ class Model:
                 default=5
             )
     ):
+        time.sleep(repeat)
         return {"output": " ".join(["Hello World!"] * repeat)}
 
     def generate(
