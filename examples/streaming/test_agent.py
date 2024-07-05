@@ -6,5 +6,6 @@ data = {
     "inputs": {"repeat": 5}
 }
 with requests.post(url, stream=True, json=data, headers={"UID": "12345"}) as r:
+    print(r.status_code)
     for chunk in r.iter_lines():
         print(chunk)
