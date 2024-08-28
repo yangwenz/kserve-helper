@@ -310,7 +310,7 @@ class KServeModel(Model):
     def wrap_generator(g):
         def _g():
             for i, data in enumerate(g()):
-                yield json.dumps({"id": i, "data": data}) + "\n"
+                yield json.dumps({"id": i, "data": data}, ensure_ascii=False) + "\n"
 
         return _g
 
