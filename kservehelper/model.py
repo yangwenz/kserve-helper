@@ -8,6 +8,7 @@ import uuid
 import typing
 import pydantic
 import inspect
+from importlib.metadata import version
 
 from collections import OrderedDict
 from typing import Any, Dict, Callable
@@ -15,7 +16,12 @@ from inspect import signature
 from datetime import datetime
 
 from kserve import Model
-from kservehelper.kserve import ModelServer
+
+if version("kserve") <= "0.10.2":
+    from kservehelper.kserve import ModelServer
+else:
+    from kserve import ModelServer
+
 from kservehelper.types import Path, validate
 from kservehelper.utils import upload_files
 
@@ -224,6 +230,8 @@ class KServeModel(Model):
     @staticmethod
     def _predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         start_time = time.time()
+        if isinstance(payload, bytes):
+            payload = json.loads(payload.decode("utf-8"))
         upload_webhook = payload.pop("upload_webhook", None)
         payload = KServeModel._process_payload(payload)
         outputs = self.model.predict(**payload)
