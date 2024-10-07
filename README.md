@@ -1,11 +1,11 @@
 # kserve-helper
 
-This is a helper for building docker images for ML models. 
+*kserve-helper* is a toolkit for building docker images for ML models built on KServe. It supports
+model input validation, uploading generated files to S3 or GCS, building model images, etc.
 [Here](https://github.com/HyperGAI/kserve-helper/tree/main/examples) are some basic examples.
-For more examples, please visit this [repo](https://github.com/HyperGAI/model-zoo).
 
 ## Implement a Model Class for Serving
-To build a docker image for serving, we only need to implement one class with `load` and `predict`
+To build a docker image for serving, we only need to implement a model class with `load` and `predict`
 methods:
 ```python
 class Model:
@@ -34,16 +34,70 @@ class Model:
         output_image.save(output_path)
         return Path(output_path)
 ```
-The `load` function will be called during the initialization step, which will be only called once.
-The `predict` function will be called for each request. The input parameter info is specified by
-the `Input` class. This `Input` class allows us to set parameter descriptions, default value and
+The `load` function will be called during the model initialization step, which will be only called once.
+The `predict` function will be called for each request. The input parameter information is specified by
+the `Input` class. This `Input` class allows us to set parameter descriptions, default values and
 constraints (e.g., 0 <= input value <= 1). 
 
 The output typing of the `predict` function is important. If the output type is `Path` or 
-`List[Path]`, the webhook for uploading will be called after `predict` is finished. In this case,
+`List[Path]`, the webhook for uploading files will be called after `predict` is finished. In this case,
 the input request should also contain an additional key "upload_webhook" to specify the webhook server
 address (an [example](https://github.com/HyperGAI/kserve-helper/tree/main/examples/rotate-image)).
 If the output type is not `Path`, the results will be returned directly without calling the webhook.
+
+If streaming outputs are required, the output of `predict` should be an iterator:
+```python
+class Model:
+
+    def load(self):
+        pass
+
+    def predict(
+            self,
+            repeat: int = Input(
+                description="The number of repeats",
+                default=5
+            )
+    ):
+        def _generator():
+            for i in range(repeat):
+                yield "Hello World!"
+                time.sleep(1)
+
+        return KServeModel.wrap_generator(_generator)
+```
+Note that we combine streaming and non-streaming APIs together as `predict` when using KServe >= 0.13.1. 
+For KServe <= 0.10.2, we seperate streaming and non-streaming APIs, i.e.,
+```python
+class Model:
+
+    def load(self):
+        pass
+
+    def predict(
+            self,
+            repeat: int = Input(
+                description="The number of repeats",
+                default=5
+            )
+    ):
+        time.sleep(repeat)
+        return {"output": " ".join(["Hello World!"] * repeat)}
+
+    def generate(
+            self,
+            repeat: int = Input(
+                description="The number of repeats",
+                default=5
+            )
+    ):
+        def _generator():
+            for i in range(repeat):
+                yield "Hello World!"
+                time.sleep(1)
+
+        return KServeModel.wrap_generator(_generator)
+```
 
 ## Write a Config for Building Docker Image
 
@@ -98,4 +152,4 @@ To push the docker image, run this command:
 kservehelper push .
 ```
 
-For more details, please check the implementations in the [repo](https://github.com/HyperGAI/model-zoo).
+For more details, please check the implementations in the [repo](https://github.com/yangwenz/Hyperbooth).
