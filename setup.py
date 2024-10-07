@@ -2,7 +2,7 @@ from setuptools import setup, find_namespace_packages
 
 setup(
     name="kservehelper",
-    version="1.2.6",
+    version="2.0.0",
     author="Wenzhuo Yang",
     description="A KServe Model Wrapper",
     long_description=open("README.md", "r", encoding="utf-8").read(),
@@ -17,8 +17,8 @@ setup(
         ]
     },
     install_requires=[
-        "kserve==0.10.2",
-        "pydantic==1.10.12",
+        "pydantic==2.8.2",
+        "kserve==0.13.1",
         "requests==2.29.0",
         "aiohttp==3.8.3",
         "aiofiles==23.2.1",
