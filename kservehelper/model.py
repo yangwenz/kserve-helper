@@ -8,14 +8,20 @@ import uuid
 import typing
 import pydantic
 import inspect
+from importlib.metadata import version
 
 from collections import OrderedDict
-from typing import Any, Dict, Callable
+from typing import Any, Dict, Callable, Union, Iterator, AsyncIterator
 from inspect import signature
 from datetime import datetime
 
 from kserve import Model
-from kservehelper.kserve import ModelServer
+
+if version("kserve") <= "0.10.2":
+    from kservehelper.kserve import ModelServer
+else:
+    from kserve import ModelServer
+
 from kservehelper.types import Path, validate
 from kservehelper.utils import upload_files
 
@@ -222,27 +228,41 @@ class KServeModel(Model):
         return payload
 
     @staticmethod
-    def _predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+    def _predict(
+            self,
+            payload: Union[Dict, bytes],
+            headers: Dict[str, str] = None
+    ) -> Union[Dict, Iterator, AsyncIterator]:
         start_time = time.time()
+        if isinstance(payload, bytes):
+            payload = json.loads(payload.decode("utf-8"))
         upload_webhook = payload.pop("upload_webhook", None)
+
         payload = KServeModel._process_payload(payload)
         outputs = self.model.predict(**payload)
-        results = KServeModel._upload(upload_webhook, outputs)
-        if getattr(self.model, "after_predict", None) is not None:
-            results = self.model.after_predict(results)
-        results["running_time"] = f"{time.time() - start_time}s"
-        return results
+        if not isinstance(outputs, (Iterator, AsyncIterator)):
+            results = KServeModel._upload(upload_webhook, outputs)
+            if getattr(self.model, "after_predict", None) is not None:
+                results = self.model.after_predict(results)
+            results["running_time"] = f"{time.time() - start_time}s"
+            return results
+        else:
+            return outputs
 
     @staticmethod
-    def _generate(self, payload: Dict, headers: Dict[str, str] = None):
+    def _generate(self, payload: Union[Dict, bytes], headers: Dict[str, str] = None):
+        if isinstance(payload, bytes):
+            payload = json.loads(payload.decode("utf-8"))
         payload.pop("upload_webhook", None)
         payload = KServeModel._process_payload(payload)
         generator = self.model.generate(**payload)
         return generator
 
     @staticmethod
-    def _preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+    def _preprocess(self, payload: Union[Dict, bytes], headers: Dict[str, str] = None) -> Dict:
         self.predict_start_time = time.time()
+        if isinstance(payload, bytes):
+            payload = json.loads(payload.decode("utf-8"))
         self.upload_webhook = payload.pop("upload_webhook", None)
         payload = KServeModel._process_payload(payload)
         return self.model.preprocess(**payload)
@@ -308,11 +328,19 @@ class KServeModel(Model):
 
     @staticmethod
     def wrap_generator(g):
-        def _g():
-            for i, data in enumerate(g()):
-                yield json.dumps({"id": i, "data": data}, ensure_ascii=False) + "\n"
 
-        return _g
+        if version("kserve") <= "0.10.2":
+            def _g():
+                for i, data in enumerate(g()):
+                    yield json.dumps({"id": i, "data": data}, ensure_ascii=False) + "\n"
+
+            return _g
+        else:
+            async def _g():
+                for i, data in enumerate(g()):
+                    yield json.dumps({"id": i, "data": data}, ensure_ascii=False) + "\n"
+
+            return _g()
 
     @staticmethod
     def serve(name: str, model_class: Any, num_replicas: int = 1, **kwargs):
