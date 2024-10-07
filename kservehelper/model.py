@@ -228,7 +228,7 @@ class KServeModel(Model):
         return payload
 
     @staticmethod
-    def _predict(
+    async def _predict(
             self,
             payload: Union[Dict, bytes],
             headers: Dict[str, str] = None
@@ -239,7 +239,11 @@ class KServeModel(Model):
         upload_webhook = payload.pop("upload_webhook", None)
 
         payload = KServeModel._process_payload(payload)
-        outputs = self.model.predict(**payload)
+        if not inspect.iscoroutinefunction(self.model.predict):
+            outputs = self.model.predict(**payload)
+        else:
+            outputs = await self.model.predict(**payload)
+
         if not isinstance(outputs, (Iterator, AsyncIterator)):
             results = KServeModel._upload(upload_webhook, outputs)
             if getattr(self.model, "after_predict", None) is not None:

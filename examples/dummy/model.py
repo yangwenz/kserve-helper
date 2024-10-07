@@ -8,7 +8,7 @@ class Model:
     def load(self):
         pass
 
-    def predict(
+    async def predict(
             self,
             param: str = Input(
                 description="global param",
