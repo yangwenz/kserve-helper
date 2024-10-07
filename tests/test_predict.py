@@ -1,4 +1,6 @@
 import unittest
+import asyncio
+import inspect
 from typing import Dict
 from kservehelper.model import KServeModel
 from kservehelper.types import Input
@@ -24,13 +26,19 @@ class TestKServeModel(unittest.TestCase):
     def test_model(self):
         payload = {"prompt": "test test", "upload_webhook": "http://localhost"}
         model = KServeModel("test", CustomModel)
-        outputs = model.predict(payload)
+        if inspect.iscoroutinefunction(model.predict):
+            outputs = asyncio.run(model.predict(payload))
+        else:
+            outputs = model.predict(payload)
         self.assertEqual(outputs["outputs"], "test test")
 
     def test_default(self):
         payload = {"upload_webhook": "http://localhost"}
         model = KServeModel("test", CustomModel)
-        outputs = model.predict(payload)
+        if inspect.iscoroutinefunction(model.predict):
+            outputs = asyncio.run(model.predict(payload))
+        else:
+            outputs = model.predict(payload)
         self.assertEqual(outputs["outputs"], "standing, (full body)++")
 
 
