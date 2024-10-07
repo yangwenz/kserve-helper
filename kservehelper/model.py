@@ -11,7 +11,7 @@ import inspect
 from importlib.metadata import version
 
 from collections import OrderedDict
-from typing import Any, Dict, Callable
+from typing import Any, Dict, Callable, Union
 from inspect import signature
 from datetime import datetime
 
@@ -228,7 +228,7 @@ class KServeModel(Model):
         return payload
 
     @staticmethod
-    def _predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+    def _predict(self, payload: Union[Dict, bytes], headers: Dict[str, str] = None) -> Dict:
         start_time = time.time()
         if isinstance(payload, bytes):
             payload = json.loads(payload.decode("utf-8"))
@@ -242,15 +242,19 @@ class KServeModel(Model):
         return results
 
     @staticmethod
-    def _generate(self, payload: Dict, headers: Dict[str, str] = None):
+    def _generate(self, payload: Union[Dict, bytes], headers: Dict[str, str] = None):
+        if isinstance(payload, bytes):
+            payload = json.loads(payload.decode("utf-8"))
         payload.pop("upload_webhook", None)
         payload = KServeModel._process_payload(payload)
         generator = self.model.generate(**payload)
         return generator
 
     @staticmethod
-    def _preprocess(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+    def _preprocess(self, payload: Union[Dict, bytes], headers: Dict[str, str] = None) -> Dict:
         self.predict_start_time = time.time()
+        if isinstance(payload, bytes):
+            payload = json.loads(payload.decode("utf-8"))
         self.upload_webhook = payload.pop("upload_webhook", None)
         payload = KServeModel._process_payload(payload)
         return self.model.preprocess(**payload)
