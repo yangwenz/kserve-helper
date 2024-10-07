@@ -23,7 +23,7 @@ from multiprocessing import Process
 from typing import Dict, List, Optional, Union, Tuple, AsyncIterator, Any
 
 from ray import serve as rayserve
-from ray.serve.api import Deployment, RayServeHandle
+from ray.serve.api import Deployment
 
 from kserve.logging import KSERVE_LOG_CONFIG, logger
 from kserve.model import Model
@@ -230,7 +230,7 @@ class ModelServer:
             logger.info("Stopping the grpc server")
             await self._grpc_server.stop(sig)
 
-    def register_model_handle(self, name: str, model_handle: RayServeHandle):
+    def register_model_handle(self, name: str, model_handle):
         self.registered_models.update_handle(name, model_handle)
         logger.info("Registering model handle: %s", name)
 

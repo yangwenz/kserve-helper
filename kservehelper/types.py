@@ -8,10 +8,16 @@ import shutil
 import tempfile
 import urllib
 from typing import Any, Dict, Iterator, List, Optional, TypeVar, Union
+from packaging.version import Version
 
 import requests
 import pydantic
 from pydantic import Field
+
+try:
+    from annotated_types import MinLen, MaxLen, Ge, Le
+except:
+    pass
 
 FILENAME_ILLEGAL_CHARS = set("\u0000/")
 
@@ -24,8 +30,8 @@ FILENAME_MAX_LENGTH = 200
 def Input(
         default: Any = ...,
         description: str = None,
-        ge: float = None,
-        le: float = None,
+        ge: Union[float, str] = None,
+        le: Union[float, str] = None,
         min_length: int = None,
         max_length: int = None,
         min_items: int = None,
@@ -48,7 +54,7 @@ def Input(
     )
 
 
-def validate(value, name: str, field: pydantic.fields.FieldInfo):
+def validate_old(value, name: str, field: pydantic.fields.FieldInfo):
     if isinstance(value, str):
         if field.min_length:
             assert len(value) >= field.min_length, \
@@ -72,6 +78,48 @@ def validate(value, name: str, field: pydantic.fields.FieldInfo):
         if field.le:
             assert value <= field.le, \
                 f"the value of {name} should be <= {field.le}"
+
+
+def validate_new(value, name: str, field: pydantic.fields.FieldInfo):
+    if isinstance(value, str):
+        for constraint in field.metadata:
+            if isinstance(constraint, MinLen):
+                assert len(value) >= constraint.min_length, \
+                    f"the length of {name} should be >= {constraint.min_length}"
+            elif isinstance(constraint, MaxLen):
+                assert len(value) <= constraint.max_length, \
+                    f"the length of {name} should be <= {constraint.max_length}"
+            elif isinstance(constraint, Ge):
+                assert value >= constraint.ge, \
+                    f"the value of {name} should be >= {constraint.ge}"
+            elif isinstance(constraint, Le):
+                assert value <= constraint.le, \
+                    f"the value of {name} should be <= {constraint.le}"
+
+    elif isinstance(value, (list, tuple)):
+        for constraint in field.metadata:
+            if isinstance(constraint, MinLen):
+                assert len(value) >= constraint.min_length, \
+                    f"the number of items in {name} should be >= {constraint.min_length}"
+            elif isinstance(constraint, MaxLen):
+                assert len(value) <= constraint.max_length, \
+                    f"the number of items in {name} should be <= {constraint.max_length}"
+
+    elif isinstance(value, (int, float)):
+        for constraint in field.metadata:
+            if isinstance(constraint, Ge):
+                assert value >= constraint.ge, \
+                    f"the value of {name} should be >= {constraint.ge}"
+            elif isinstance(constraint, Le):
+                assert value <= constraint.le, \
+                    f"the value of {name} should be <= {constraint.le}"
+
+
+def validate(value, name: str, field: pydantic.fields.FieldInfo):
+    if Version(pydantic.version.VERSION) >= Version("2.0"):
+        validate_new(value, name, field)
+    else:
+        validate_old(value, name, field)
 
 
 class File(io.IOBase):
